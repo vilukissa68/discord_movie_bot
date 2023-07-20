@@ -1,6 +1,8 @@
-#[derive(Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Movie {
-    name: String,
+    pub name: String,
     url: String,
     year: u32,
     rating: f32,
@@ -21,7 +23,7 @@ impl Movie {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MovieList {
     name: String,
     creator: String,
@@ -55,4 +57,13 @@ impl MovieList {
     pub fn get_movie(&self, name: String) -> Option<&Movie> {
         self.movies.iter().find(|x| x.name == name)
     }
+}
+
+pub fn serialize_movielist(list: MovieList) -> String {
+    serde_json::to_string(&list).unwrap()
+}
+
+pub fn deserialize_movielist(json: String) -> MovieList {
+    let list: MovieList = serde_json::from_str(&json).unwrap();
+    list
 }

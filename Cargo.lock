@@ -205,6 +205,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "reqwest",
+ "serde",
  "serde_json",
  "sqlx",
  "tokio",
