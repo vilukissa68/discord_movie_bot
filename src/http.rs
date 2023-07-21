@@ -40,14 +40,14 @@ pub async fn http_get_movie_object(name: String, adder: String) -> Movie {
     // Year needs some extra handling before it can be parsed to u32
     let year = json["Year"].to_string().replace("\"", "").parse::<u32>().unwrap();
     let movie = Movie::new(
-        json["Title"].to_string(),
+        json["Title"].to_string().replace("\"", ""),
         adder,
-        Some(json["Director"].to_string()),
-        Some(json["Language"].to_string()),
-        Some(json["Country"].to_string()),
-        Some(json["Metascore"].to_string()),
-        Some(json["imdbRating"].to_string()),
-        Some(json["imdbID"].to_string()),
+        Some(json["Director"].to_string().replace("\"", "")),
+        Some(json["Language"].to_string().replace("\"", "")),
+        Some(json["Country"].to_string().replace("\"", "")),
+        Some(json["Metascore"].to_string().replace("\"", "")),
+        Some(json["imdbRating"].to_string().replace("\"", "")),
+        Some(json["imdbID"].to_string().replace("\"", "")),
         Some(year),
     );
     return movie;

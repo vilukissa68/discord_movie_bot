@@ -35,7 +35,11 @@ async fn main() -> Result<(), sqlx::Error> {
     // add_movie(&pool, String::from("movies"), &movie).await?;
     // list.add_movie(movie);
     // list.add_movie(movie2);
-    http_get_movie_object(String::from("The Godfather part III"), "CLI".to_string()).await;
+    //create_list(&pool, String::from("movies")).await?;
+    //let movie = http_get_movie_object(String::from("The Godfather part III"), "CLI".to_string()).await;
+    //add_movie(&pool, String::from("movies"), &movie).await?;
+    let movie = get_movie_by_name(&pool, String::from("movies"), String::from("The Godfather part III")).await;
+    println!("{:?}", movie.unwrap());
 
     Ok(())
 }

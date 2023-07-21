@@ -1,16 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Movie {
     pub title: String,
-    adder: String,
-    director: String,
-    language: String,
-    country: String,
-    metascore: String,
-    imdbrating: String,
-    imdbid: String,
-    year: u32,
+    pub adder: String,
+    pub director: String,
+    pub language: String,
+    pub country: String,
+    pub metascore: String,
+    pub imdbrating: String,
+    pub imdbid: String,
+    pub year: u32,
+    pub watched: bool,
 }
 
 impl Movie {
@@ -27,6 +28,7 @@ impl Movie {
             imdbrating: imdbrating.unwrap_or("NULL".to_string()),
             imdbid: imdbid.unwrap_or("NULL".to_string()),
             year: year.unwrap_or(0),
+            watched: false,
         }
     }
 }
@@ -67,8 +69,17 @@ impl MovieList {
     }
 }
 
-pub fn serialize_movielist(list: MovieList) -> String {
-    serde_json::to_string(&list).unwrap()
+pub fn serialize_movie(movie: &Movie) -> String {
+    serde_json::to_string(movie).unwrap()
+}
+
+pub fn deserialize_movie(json: String) -> Movie {
+    let movie: Movie = serde_json::from_str(&json).unwrap();
+    movie
+}
+
+pub fn serialize_movielist(list: &MovieList) -> String {
+    serde_json::to_string(list).unwrap()
 }
 
 pub fn deserialize_movielist(json: String) -> MovieList {

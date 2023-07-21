@@ -1,8 +1,14 @@
 use sqlx::mysql::MySqlPool;
-use crate::movie::*;
+use crate::movie::{Movie};
 
 pub async fn create_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
-    let query = format!("CREATE TABLE IF NOT EXISTS {} (title INT NOT NULL AUTO_INCREMENT, title VARCHAR(255) NOT NULL, PRIMARY KEY (id))", table);
+    let query = format!("
+CREATE TABLE IF NOT EXISTS {} (id INT NOT NULL AUTO_INCREMENT, title VARCHAR(255) NOT NULL,
+adder VARCHAR(255) NOT NULL, director VARCHAR(255) NOT NULL, language VARCHAR(255) NOT NULL,
+country VARCHAR(255) NOT NULL, metascore VARCHAR(255) NOT NULL, imdbrating VARCHAR(255) NOT NULL,
+imdbid VARCHAR(255) NOT NULL, year INT UNSIGNED NOT NULL, watched BOOLEAN NOT NULL,
+PRIMARY KEY (id))",
+                        table);
     sqlx::query(query.as_str())
         .execute(pool).await?;
     Ok(())
@@ -16,7 +22,11 @@ pub async fn remove_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Er
 }
 
 pub async fn add_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
-    let query = format!("INSERT INTO {} (title) VALUES (\"{}\")", table, movie.title.clone());
+    let query = format!("INSERT INTO {} (title, adder, director, language, country, metascore, imdbrating, imdbid, year, watched)
+VALUES (\"{}\", \"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\", {}, {})", table,
+                        movie.title.clone(), movie.adder.clone(), movie.director.clone(), movie.language.clone(),
+                        movie.country.clone(), movie.metascore.clone(), movie.imdbrating.clone(), movie.imdbid.clone(),
+                        movie.year.clone(), movie.watched.clone());
     sqlx::query(query.as_str())
         .execute(pool).await?;
     Ok(())
@@ -36,11 +46,16 @@ pub async fn delete_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Res
     Ok(())
 }
 
-pub async fn get_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
-    let query = format!("SELECT * FROM {} WHERE id = \"{}\"", table, movie.title.clone());
-    sqlx::query(query.as_str())
-        .execute(pool).await?;
-    Ok(())
+pub async fn get_movie_by_name(pool: &MySqlPool, table: String, title: String) -> Option<Movie> {
+    let query = format!("SELECT * FROM {} WHERE title = \"{}\"", table, title);
+    let result = sqlx::query_as::<_, Movie>(query.as_str())
+        .fetch_one(pool)
+         .await;
+    match result {
+        Ok(movie) => Some(movie),
+        Err(_) => None
+    }
+
 }
 
 pub async fn get_movies(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
