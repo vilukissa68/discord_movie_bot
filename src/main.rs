@@ -9,8 +9,11 @@ use crate::movie::*;
 use dotenv::dotenv;
 use sqlx::mysql::MySqlPool;
 use regex::Regex;
+use std::time::Duration;
 
 use serenity::async_trait;
+use serenity::collector::{EventCollectorBuilder, MessageCollectorBuilder};
+use serenity::futures::stream::StreamExt;
 use serenity::prelude::*;
 use serenity::model::channel::Message;
 use serenity::framework::standard::{
@@ -26,6 +29,10 @@ use serenity::framework::standard::{
 #[group]
 #[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove)]
 struct General;
+
+#[group("collector")]
+#[commands(delete_list)]
+struct Collector;
 
 struct Handler;
 
@@ -63,7 +70,7 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
         [_, table] => {
             let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            if !db::table_exists(&pool, table_name.to_string()).await? {
+            if !db::table_exists(&pool, &table_name).await? {
                 msg.reply(ctx, format!("List {} does not exist", table)).await?;
                 return Ok(());
             }
@@ -93,7 +100,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
             }
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
-            match db::table_exists(&pool, table_name.to_string()).await? {
+            match db::table_exists(&pool, &table_name).await? {
                 true => {
                     let movie = http::http_get_movie(&title, &adder, Some(year.unwrap())).await;
                     if movie.is_err() {
@@ -110,7 +117,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
         [_, table, title] => {
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
-            match db::table_exists(&pool, table_name.to_string()).await? {
+            match db::table_exists(&pool, &table_name).await? {
                 true => {
                     let movie = http::http_get_movie(&title, &adder, None).await;
                     if movie.is_err() {
@@ -264,6 +271,40 @@ async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
+#[command]
+async fn delete_list(ctx: &Context, msg: &Message) -> CommandResult {
+    println!("delete_list");
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, table] => {
+            // Check if addressing movie with name of id
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            if !db::table_exists(&pool, &table_name).await? {
+                msg.reply(ctx, format!("List {} doesn't exist to begin with", table.to_string())).await?;
+                return Ok(());
+            }
+            let _ = msg.reply(ctx, format!("Are you absolutely sure you want to delete list {}? (yes/no)", table.to_string())).await?;
+            if let Some(answer) = &msg.author.await_reply(ctx).timeout(Duration::from_secs(20)).await {
+                if answer.content.to_lowercase() != "yes" {
+                    msg.reply(ctx, "Aborting").await?;
+                    return Ok(());
+                }
+            }
+            db::delete_list(&pool, &table_name).await?;
+
+            if !db::table_exists(&pool, &table_name).await? {
+                msg.reply(ctx, format!("Deleted list {}", table.to_string())).await?;
+            } else {
+                msg.reply(ctx, format!("List {} not found", table.to_string())).await?;
+            }
+        }
+        _ => {msg.reply(ctx, "Invalid arguments").await?;}
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     dotenv().ok();
@@ -271,7 +312,8 @@ async fn main() -> Result<(), sqlx::Error> {
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!"))
-        .group(&GENERAL_GROUP);
+        .group(&GENERAL_GROUP)
+        .group(&COLLECTOR_GROUP);
 
     let discord_token = std::env::var("DISCORD_API_TOKEN").expect("DISCORD_API_TOKEN not set");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;

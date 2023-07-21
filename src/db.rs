@@ -15,7 +15,7 @@ PRIMARY KEY (id))",
     Ok(())
 }
 
-pub async fn remove_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
+pub async fn delete_list(pool: &MySqlPool, table: &String) -> Result<(), sqlx::Error> {
     let query = format!("DROP TABLE {}", table);
     sqlx::query(query.as_str())
         .execute(pool).await?;
@@ -84,12 +84,12 @@ pub async fn get_movies(pool: &MySqlPool, table: String) -> Option<Vec<Movie>> {
     return Some(movies);
 }
 
-pub async fn table_exists(pool: &MySqlPool, table: String) -> anyhow::Result<bool> {
+pub async fn table_exists(pool: &MySqlPool, table: &String) -> anyhow::Result<bool> {
     let tables = sqlx::query!("SHOW TABLES")
         .fetch_all(pool).await?;
 
     for tab in tables {
-        if tab.Tables_in_discord == table {
+        if tab.Tables_in_discord == table.clone() {
             println!("Table {} exists", table);
             return Ok(true);
         }
