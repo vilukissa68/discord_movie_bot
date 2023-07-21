@@ -39,11 +39,13 @@ VALUES (\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\", {}, {})"
     Ok(())
 }
 
-pub async fn update_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
-    let query = format!("UPDATE {} SET title = \"{}\" WHERE id = \"{}\"", table, movie.title.clone(), movie.title.clone());
-    sqlx::query(query.as_str())
-        .execute(pool).await?;
-    Ok(())
+pub async fn watch_movie(pool: &MySqlPool, table: &String, movie: &Movie) -> Result<bool> {
+    let query = format!("UPDATE {} SET watched = \"{}\" WHERE title = \"{}\"", table, movie.watched.clone() as i32, movie.title.clone());
+    println!("Query: {}", query);
+    let rows_affected = sqlx::query(query.as_str())
+        .execute(pool).await?
+        .rows_affected();
+    Ok(rows_affected > 0)
 }
 
 pub async fn delete_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
@@ -53,14 +55,14 @@ pub async fn delete_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Res
     Ok(())
 }
 
-pub async fn get_movie_by_name(pool: &MySqlPool, table: String, title: String) -> Option<Movie> {
+pub async fn get_movie_by_name(pool: &MySqlPool, table: &String, title: &String) -> Result<Movie> {
     let query = format!("SELECT * FROM {} WHERE title = \"{}\"", table, title);
     let result = sqlx::query_as::<_, Movie>(query.as_str())
         .fetch_one(pool)
          .await;
     match result {
-        Ok(movie) => Some(movie),
-        Err(_) => None
+        Ok(m) => return Ok(m),
+        Err(_) => return Err(anyhow::anyhow!("Movie not found"))
     }
 }
 
