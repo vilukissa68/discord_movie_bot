@@ -1,10 +1,11 @@
 use sqlx::mysql::MySqlPool;
 use crate::movie::{Movie};
+use anyhow::Result;
 
 pub async fn create_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
     let query = format!("
 CREATE TABLE IF NOT EXISTS {} (id INT NOT NULL AUTO_INCREMENT, title VARCHAR(255) NOT NULL,
-adder VARCHAR(255) NOT NULL, director VARCHAR(255) NOT NULL, language VARCHAR(255) NOT NULL,
+adder VARCHAR(255) NOT NULL, director VARCHAR(255) NOT NULL, actors VARCHAR(511) NOT NULL, language VARCHAR(255) NOT NULL,
 country VARCHAR(255) NOT NULL, metascore VARCHAR(255) NOT NULL, imdbrating VARCHAR(255) NOT NULL,
 imdbid VARCHAR(255) NOT NULL, year INT UNSIGNED NOT NULL, watched BOOLEAN NOT NULL,
 PRIMARY KEY (id))",
@@ -23,8 +24,8 @@ pub async fn remove_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Er
 
 pub async fn add_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
     let query = format!("INSERT INTO {} (title, adder, director, language, country, metascore, imdbrating, imdbid, year, watched)
-VALUES (\"{}\", \"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\", {}, {})", table,
-                        movie.title.clone(), movie.adder.clone(), movie.director.clone(), movie.language.clone(),
+VALUES (\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\", {}, {})", table,
+                        movie.title.clone(), movie.adder.clone(), movie.director.clone(),movie.actors.clone(), movie.language.clone(),
                         movie.country.clone(), movie.metascore.clone(), movie.imdbrating.clone(), movie.imdbid.clone(),
                         movie.year.clone(), movie.watched.clone());
     sqlx::query(query.as_str())
@@ -55,7 +56,6 @@ pub async fn get_movie_by_name(pool: &MySqlPool, table: String, title: String) -
         Ok(movie) => Some(movie),
         Err(_) => None
     }
-
 }
 
 pub async fn get_movies(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
@@ -63,4 +63,18 @@ pub async fn get_movies(pool: &MySqlPool, table: String) -> Result<(), sqlx::Err
     sqlx::query(query.as_str())
         .fetch_all(pool).await?;
     Ok(())
+}
+
+pub async fn table_exists(pool: &MySqlPool, table: String) -> anyhow::Result<bool> {
+    let tables = sqlx::query!("SHOW TABLES")
+        .fetch_all(pool).await?;
+
+    for tab in tables {
+        if tab.Tables_in_discord == table {
+            println!("Table {} exists", table);
+            return Ok(true);
+        }
+    }
+    return Ok(false);
+
 }

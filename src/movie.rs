@@ -5,6 +5,7 @@ pub struct Movie {
     pub title: String,
     pub adder: String,
     pub director: String,
+    pub actors: String,
     pub language: String,
     pub country: String,
     pub metascore: String,
@@ -15,13 +16,14 @@ pub struct Movie {
 }
 
 impl Movie {
-    pub fn new(title: String, adder: String, director: Option<String>, language: Option<String>,
+    pub fn new(title: String, adder: String, director: Option<String>, actors: Option<String>, language: Option<String>,
     country: Option<String>, metascore: Option<String>, imdbrating: Option<String>, imdbid: Option<String>,
     year: Option<u32>) -> Movie {
         Movie {
             title: title,
             adder: adder,
             director: director.unwrap_or("NULL".to_string()),
+            actors: actors.unwrap_or("NULL".to_string()),
             language: language.unwrap_or("NULL".to_string()),
             country: country.unwrap_or("NULL".to_string()),
             metascore: metascore.unwrap_or("NULL".to_string()),

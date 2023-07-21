@@ -1,45 +1,172 @@
 pub mod movie;
 pub mod http;
 pub mod db;
+pub mod utils;
 
-//use crate::movie::*;
-use crate::http::*;
 use crate::db::*;
 
 use dotenv::dotenv;
 use sqlx::mysql::MySqlPool;
+use regex::Regex;
+
+use serenity::async_trait;
+use serenity::prelude::*;
+use serenity::model::channel::Message;
+use serenity::framework::standard::{
+    StandardFramework,
+    CommandResult,
+    macros::{
+        command,
+        group
+    }
+};
+
+
+#[group]
+#[commands(ping)]
+#[commands(create_list)]
+#[commands(add_movie)]
+#[commands(search)]
+struct General;
+
+struct Handler;
+
+#[async_trait]
+impl EventHandler for Handler{}
+
+
+#[command]
+async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.reply(ctx, "Pong Pong!").await?;
+    Ok(())
+}
+
+#[command]
+async fn create_list(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, table] => {
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            db::create_list(&pool, table_name).await?;
+            msg.reply(ctx, format!("Created list {}", table.to_string())).await?;
+        }
+        _ => {
+            msg.reply(ctx, "Invalid arguments").await?;
+        }
+    }
+    Ok(())
+}
+
+#[command]
+async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    let adder = msg.author.name.clone();
+    match &split[..] {
+        [_, table, title, year] => {
+            let year = year.parse::<u32>();
+            if year.is_err() {
+                msg.reply(ctx, "Invalid year").await?;
+                return Ok(());
+            }
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            match db::table_exists(&pool, table_name.to_string()).await? {
+                true => {
+                    let movie = http::http_get_movie(&title, &adder, Some(year.unwrap())).await;
+                    if movie.is_err() {
+                        msg.reply(ctx, format!("Movie {} not found", title)).await?;
+                        return Ok(());
+                    }
+                    let movie = movie.unwrap();
+                    db::add_movie(&pool, table_name, &movie).await?;
+                    msg.reply(ctx, format!("Added movie {} to list {}", movie.title, table.to_string())).await?;
+                }
+                false => {msg.reply(ctx, format!("List {} does not exist", table.to_string())).await?;}
+            }
+        }
+        [_, table, title] => {
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            match db::table_exists(&pool, table_name.to_string()).await? {
+                true => {
+                    let movie = http::http_get_movie(&title, &adder, None).await;
+                    if movie.is_err() {
+                        msg.reply(ctx, format!("Movie {} not found", title)).await?;
+                        return Ok(());
+                    }
+                    let movie = movie.unwrap();
+                    db::add_movie(&pool, table_name, &movie).await?;
+                    msg.reply(ctx, format!("Added movie {} to list {}", movie.title, table.to_string())).await?;
+                }
+                false => {msg.reply(ctx, format!("List {} does not exist", table.to_string())).await?;}
+            }
+        }
+        _ => {msg.reply(ctx, "Invalid arguments").await?;}
+    }
+    Ok(())
+}
+
+#[command]
+async fn search(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, title, year] => {
+            let year = year.parse::<u32>();
+            if year.is_err() {
+                msg.reply(ctx, "Invalid year").await?;
+                return Ok(());
+            }
+            let movie = http::http_get_movie(&title, &"None".to_string(), Some(year.unwrap())).await;
+            if movie.is_err() {
+                msg.reply(ctx, format!("Movie {} not found", title)).await?;
+                return Ok(());
+            }
+            let movie = movie.unwrap();
+            let card = utils::create_movie_card(&movie);
+            msg.channel_id.say(&ctx.http, card).await?;
+        }
+        [_, title] => {
+            let movie = http::http_get_movie(&title, &"None".to_string(), None).await;
+            if movie.is_err() {
+                msg.reply(ctx, format!("Movie {} not found", title)).await?;
+                return Ok(());
+            }
+            let movie = movie.unwrap();
+            let card = utils::create_movie_card(&movie);
+            msg.channel_id.say(&ctx.http, card).await?;
+        }
+            _ => {msg.reply(ctx, "Invalid arguments").await?;}
+
+    }
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     dotenv().ok();
     let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
 
-    // sqlx::query("CREATE TABLE IF NOT EXISTS movies (name INT NOT NULL AUTO_INCREMENT, name VARCHAR(255) NOT NULL, PRIMARY KEY (id))")
-    //     .execute(&pool).await?;
+    let framework = StandardFramework::new()
+        .configure(|c| c.prefix("!"))
+        .group(&GENERAL_GROUP);
 
-    // sqlx::query("INSERT INTO movies (name) VALUES (?)")
-    //     .bind("The Godfather")
-    //     .execute(&pool).await?;
+    let discord_token = std::env::var("DISCORD_API_TOKEN").expect("DISCORD_API_TOKEN not set");
+    let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
+    let mut client = Client::builder(discord_token, intents)
+        .event_handler(Handler)
+        .framework(framework)
+        .await
+        .expect("Error creating client");
 
-    // let rows = sqlx::query!("SELECT * FROM movies")
-    //     .fetch_all(&pool).await?;
+    if let Err(why) = client.start().await {
+        println!("Client error: {:?}", why);
+    }
 
-    // for row in rows {
-    //     println!("Movie: {}", row.name);
-    // }
-
-    // let mut list = MovieList::new(String::from("My List"), String::from("Me"));
-    // let movie = Movie::new(String::from("The Godfather"), String::from("Me"));
-    // let movie2 = Movie::new(String::from("The Godfather 2"), String::from("Me"));
-    // add_movie(&pool, String::from("movies"), &movie2).await?;
-    // add_movie(&pool, String::from("movies"), &movie).await?;
-    // list.add_movie(movie);
-    // list.add_movie(movie2);
     //create_list(&pool, String::from("movies")).await?;
     //let movie = http_get_movie_object(String::from("The Godfather part III"), "CLI".to_string()).await;
     //add_movie(&pool, String::from("movies"), &movie).await?;
-    let movie = get_movie_by_name(&pool, String::from("movies"), String::from("The Godfather part III")).await;
-    println!("{:?}", movie.unwrap());
-
+    //let movie = get_movie_by_name(&pool, String::from("movies"), String::from("The Godfather part III")).await;
+    //println!("{:?}", movie.unwrap());
     Ok(())
 }

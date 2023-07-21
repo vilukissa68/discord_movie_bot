@@ -8,7 +8,10 @@ edition = "2021"
 [dependencies]
 dotenv = "0.15.0"
 reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["full", "rt-multi-thread", "macros"] }
 sqlx = { version = "0.7", features = [ "runtime-tokio", "mysql" ] }
 serde = { version = "1.0", features = ["derive"]}
 serde_json = { version = "1.0", features = ["raw_value"] }
+serenity = "0.11"
+regex = "1.9.1"
+anyhow = "1.0.72"
