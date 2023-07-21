@@ -23,10 +23,7 @@ use serenity::framework::standard::{
 
 
 #[group]
-#[commands(ping)]
-#[commands(create_list)]
-#[commands(add_movie)]
-#[commands(search)]
+#[commands(ping, create_list, show_list, add_movie, search)]
 struct General;
 
 struct Handler;
@@ -56,6 +53,20 @@ async fn create_list(ctx: &Context, msg: &Message) -> CommandResult {
         }
     }
     Ok(())
+}
+
+#[command]
+async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, table] => {
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            db::get_movies(&pool, table_name).await;
+        }
+        _ => {msg.reply(ctx, "Invalid arguments").await?;}
+    }
+        Ok(())
 }
 
 #[command]
@@ -145,7 +156,6 @@ async fn search(ctx: &Context, msg: &Message) -> CommandResult {
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     dotenv().ok();
-    let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!"))
