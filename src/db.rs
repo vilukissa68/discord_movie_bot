@@ -48,11 +48,12 @@ pub async fn watch_movie(pool: &MySqlPool, table: &String, movie: &Movie) -> Res
     Ok(rows_affected > 0)
 }
 
-pub async fn delete_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
-    let query = format!("DELETE FROM {} WHERE id = \"{}\"", table, movie.title.clone());
-    sqlx::query(query.as_str())
-        .execute(pool).await?;
-    Ok(())
+pub async fn delete_movie(pool: &MySqlPool, table: &String, title: &String) -> Result<bool> {
+    let query = format!("DELETE FROM {} WHERE title = \"{}\"", table, title);
+    let result = sqlx::query(query.as_str())
+        .execute(pool).await?
+        .rows_affected();
+    Ok((result > 0))
 }
 
 pub async fn get_movie_by_name(pool: &MySqlPool, table: &String, title: &String) -> Result<Movie> {

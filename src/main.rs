@@ -24,7 +24,7 @@ use serenity::framework::standard::{
 
 
 #[group]
-#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch)]
+#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove)]
 struct General;
 
 struct Handler;
@@ -225,6 +225,38 @@ async fn unwatch(ctx: &Context, msg: &Message) -> CommandResult {
                 msg.reply(ctx, format!("Watched movie {} from list {}", movie.title, table.to_string())).await?;
             } else {
                 msg.reply(ctx, format!("Movie {} not found in list {}", movie.title, table.to_string())).await?;
+            }
+        }
+        _ => {msg.reply(ctx, "Invalid arguments").await?;}
+    }
+    Ok(())
+}
+
+#[command]
+async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, table, title] => {
+            // Check if addressing movie with name of id
+            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            let mut matched_title = title.to_string();
+            let re = Regex::new("^[0-9]+$").unwrap();
+            if re.is_match(title) {
+                let idx: u32 = title.parse::<u32>().unwrap();
+                let t = utils::match_idx_to_name(&pool, idx, &table_name).await;
+
+                if t.is_none() {
+                    msg.reply(ctx, "Invalid movie id").await?;
+                    return Ok(());
+                }
+                matched_title = t.unwrap();
+            }
+            let result =  db::delete_movie(&pool, &table_name, &matched_title).await?;
+            if result {
+                msg.reply(ctx, format!("Removed movie {} from list {}", matched_title, table.to_string())).await?;
+            } else {
+                msg.reply(ctx, format!("Movie {} not found in list {}", matched_title, table.to_string())).await?;
             }
         }
         _ => {msg.reply(ctx, "Invalid arguments").await?;}
