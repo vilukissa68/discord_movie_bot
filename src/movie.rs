@@ -2,44 +2,52 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Movie {
-    pub name: String,
-    url: String,
-    year: u32,
-    rating: f32,
-    director: String,
+    pub title: String,
     adder: String,
+    director: String,
+    language: String,
+    country: String,
+    metascore: String,
+    imdbrating: String,
+    imdbid: String,
+    year: u32,
 }
 
 impl Movie {
-    pub fn new(name: String, adder: String) -> Movie {
+    pub fn new(title: String, adder: String, director: Option<String>, language: Option<String>,
+    country: Option<String>, metascore: Option<String>, imdbrating: Option<String>, imdbid: Option<String>,
+    year: Option<u32>) -> Movie {
         Movie {
-            name,
-            url: String::from(""),
-            year: 0,
-            rating: 0.0,
-            director: String::from(""),
-            adder,
+            title: title,
+            adder: adder,
+            director: director.unwrap_or("NULL".to_string()),
+            language: language.unwrap_or("NULL".to_string()),
+            country: country.unwrap_or("NULL".to_string()),
+            metascore: metascore.unwrap_or("NULL".to_string()),
+            imdbrating: imdbrating.unwrap_or("NULL".to_string()),
+            imdbid: imdbid.unwrap_or("NULL".to_string()),
+            year: year.unwrap_or(0),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MovieList {
-    name: String,
+    title: String,
     creator: String,
     movies: Vec<Movie>,
 }
 
 impl PartialEq for Movie {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        self.title == other.title
     }
 }
 
 impl MovieList {
-    pub fn new(name: String, creator: String) -> MovieList {
+    pub fn new(title: String, creator: String) -> MovieList {
         MovieList {
-            name,
+            title,
             creator,
             movies: Vec::new(),
         }
@@ -54,8 +62,8 @@ impl MovieList {
         self.movies.remove(index);
     }
 
-    pub fn get_movie(&self, name: String) -> Option<&Movie> {
-        self.movies.iter().find(|x| x.name == name)
+    pub fn get_movie(&self, title: String) -> Option<&Movie> {
+        self.movies.iter().find(|x| x.title == title)
     }
 }
 

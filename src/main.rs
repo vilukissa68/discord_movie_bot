@@ -2,7 +2,7 @@ pub mod movie;
 pub mod http;
 pub mod db;
 
-use crate::movie::*;
+//use crate::movie::*;
 use crate::http::*;
 use crate::db::*;
 
@@ -29,13 +29,13 @@ async fn main() -> Result<(), sqlx::Error> {
     // }
 
     // let mut list = MovieList::new(String::from("My List"), String::from("Me"));
-    let movie = Movie::new(String::from("The Godfather"), String::from("Me"));
-    let movie2 = Movie::new(String::from("The Godfather 2"), String::from("Me"));
-    add_movie(&pool, String::from("movies"), &movie2).await?;
-    add_movie(&pool, String::from("movies"), &movie).await?;
+    // let movie = Movie::new(String::from("The Godfather"), String::from("Me"));
+    // let movie2 = Movie::new(String::from("The Godfather 2"), String::from("Me"));
+    // add_movie(&pool, String::from("movies"), &movie2).await?;
+    // add_movie(&pool, String::from("movies"), &movie).await?;
     // list.add_movie(movie);
     // list.add_movie(movie2);
-    //http_get_movie_data(String::from("The Godfather"));
+    http_get_movie_object(String::from("The Godfather part III"), "CLI".to_string()).await;
 
     Ok(())
 }
