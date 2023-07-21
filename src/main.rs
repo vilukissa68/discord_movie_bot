@@ -4,6 +4,7 @@ pub mod db;
 pub mod utils;
 
 use crate::db::*;
+use crate::movie::*;
 
 use dotenv::dotenv;
 use sqlx::mysql::MySqlPool;
@@ -62,7 +63,17 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
         [_, table] => {
             let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            db::get_movies(&pool, table_name).await;
+            if !db::table_exists(&pool, table_name.to_string()).await? {
+                msg.reply(ctx, format!("List {} does not exist", table)).await?;
+                return Ok(());
+            }
+            let movies: Option<Vec<Movie>> = db::get_movies(&pool, table_name).await;
+            if movies.is_none() {
+                msg.reply(ctx, "No movies in list").await?;
+                return Ok(());
+            }
+            let card = utils::create_movie_list_card(&movies.unwrap(), &table.to_string());
+            msg.channel_id.say(&ctx.http, card).await?;
         }
         _ => {msg.reply(ctx, "Invalid arguments").await?;}
     }
@@ -156,6 +167,7 @@ async fn search(ctx: &Context, msg: &Message) -> CommandResult {
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     dotenv().ok();
+    let _pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!"))

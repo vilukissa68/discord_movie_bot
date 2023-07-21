@@ -23,13 +23,19 @@ pub async fn remove_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Er
 }
 
 pub async fn add_movie(pool: &MySqlPool, table: String, movie: &Movie) -> Result<(), sqlx::Error> {
-    let query = format!("INSERT INTO {} (title, adder, director, language, country, metascore, imdbrating, imdbid, year, watched)
+    println!("Adding movie: {:?}", movie);
+    let query = format!("INSERT INTO {} (title, adder, director, actors, language, country, metascore, imdbrating, imdbid, year, watched)
 VALUES (\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\", {}, {})", table,
                         movie.title.clone(), movie.adder.clone(), movie.director.clone(),movie.actors.clone(), movie.language.clone(),
                         movie.country.clone(), movie.metascore.clone(), movie.imdbrating.clone(), movie.imdbid.clone(),
                         movie.year.clone(), movie.watched.clone());
-    sqlx::query(query.as_str())
+    let result = sqlx::query(query.as_str())
         .execute(pool).await?;
+    if result.rows_affected() == 0 {
+        println!("No rows affected");
+    } else {
+        println!("Rows affected: {}", result.rows_affected());
+    }
     Ok(())
 }
 
@@ -58,11 +64,21 @@ pub async fn get_movie_by_name(pool: &MySqlPool, table: String, title: String) -
     }
 }
 
-pub async fn get_movies(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
+pub async fn get_movies(pool: &MySqlPool, table: String) -> Option<Vec<Movie>> {
     let query = format!("SELECT * FROM {}", table);
-    sqlx::query(query.as_str())
-        .fetch_all(pool).await?;
-    Ok(())
+    let result = sqlx::query_as::<_, Movie>(query.as_str())
+        .fetch_all(pool)
+        .await;
+    let mut movies: Vec<Movie> = Vec::new();
+    match result {
+        Ok(m) => {
+            for movie in m {
+                movies.push(movie);
+            }
+        },
+        Err(_) => return None
+    }
+    return Some(movies);
 }
 
 pub async fn table_exists(pool: &MySqlPool, table: String) -> anyhow::Result<bool> {

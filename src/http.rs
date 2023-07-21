@@ -57,9 +57,6 @@ pub async fn http_get_movie(name: &String, adder: &String, year: Option<u32>) ->
         return Err(anyhow::anyhow!("Movie not found"));
     }
 
-    
-    println!("{:?}", serde_json::to_string_pretty(&json).unwrap());
-
     // Year needs some extra handling before it can be parsed to u32
     let year = json["Year"].to_string().replace("\"", "").parse::<u32>().unwrap();
     let movie = Movie::new(
