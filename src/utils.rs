@@ -1,6 +1,7 @@
 use regex::Regex;
 use sqlx::mysql::MySqlPool;
 use serenity::utils::MessageBuilder;
+use tabled::{Table, builder::Builder, settings::Style, row};
 
 use crate::movie::Movie;
 use crate::db::{get_movies};
@@ -62,6 +63,12 @@ pub fn create_movie_list_card(movies: &Vec<Movie>, table: &String) -> String {
         i = i + 1;
     }
     card.build()
+}
+
+pub fn create_movies_list_table(movies: &Vec<Movie>, table: &String) -> String {
+    let msg: String = format!("Movies in list {}:\n", table);
+    let table = Table::new(movies).to_string();
+    return msg + &table;
 }
 
 pub async fn match_idx_to_name(pool: &MySqlPool, idx: u32, table: &String) -> Option<String> {

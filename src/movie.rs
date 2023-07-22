@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use tabled::Tabled;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Tabled)]
 pub struct Movie {
     pub title: String,
     pub adder: String,
