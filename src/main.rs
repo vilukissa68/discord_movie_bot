@@ -23,7 +23,6 @@ use serenity::framework::standard::{
     }
 };
 
-
 #[group]
 #[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove, help)]
 struct General;
@@ -49,7 +48,7 @@ async fn create_list(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
         [_, table] => {
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             db::create_list(&pool, table_name).await?;
             msg.reply(ctx, format!("Created list {}", table.to_string())).await?;
@@ -67,7 +66,7 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
         [_, table] => {
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             if !db::table_exists(&pool, &table_name).await? {
                 msg.reply(ctx, format!("List {} does not exist", table)).await?;
@@ -100,7 +99,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
                 return Ok(());
             }
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             match db::table_exists(&pool, &table_name).await? {
                 true => {
                     let movie = http::http_get_movie(&title, &adder, Some(year.unwrap())).await;
@@ -117,7 +116,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
         }
         [_, table, title] => {
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             match db::table_exists(&pool, &table_name).await? {
                 true => {
                     let movie = http::http_get_movie(&title, &adder, None).await;
@@ -180,7 +179,7 @@ async fn watch(ctx: &Context, msg: &Message) -> CommandResult {
     match &split[..] {
         [_, table, title] => {
             // Check if addressing movie with name of id
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let mut matched_title = title.to_string();
             let re = Regex::new("^[0-9]+$").unwrap();
@@ -215,7 +214,7 @@ async fn unwatch(ctx: &Context, msg: &Message) -> CommandResult {
     match &split[..] {
         [_, table, title] => {
             // Check if addressing movie with name of id
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let mut matched_title = title.to_string();
             let re = Regex::new("^[0-9]+$").unwrap();
@@ -250,7 +249,7 @@ async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
     match &split[..] {
         [_, table, title] => {
             // Check if addressing movie with name of id
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let mut matched_title = title.to_string();
             let re = Regex::new("^[0-9]+$").unwrap();
@@ -283,7 +282,7 @@ async fn delete_list(ctx: &Context, msg: &Message) -> CommandResult {
     match &split[..] {
         [_, table] => {
             // Check if addressing movie with name of id
-            let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+            let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             if !db::table_exists(&pool, &table_name).await? {
                 msg.reply(ctx, format!("List {} doesn't exist to begin with", table.to_string())).await?;
@@ -333,10 +332,22 @@ async fn help(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
+fn database_url() -> String {
+    format!("{}/{}",
+        std::env::var("DATABASE_URL").expect("DATABASE_URL not set"),
+        std::env::var("DATABASE_NAME").expect("DATABASE_NAME not set"))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     dotenv().ok();
-    let _pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+    println!("Starting up");
+    println!("Connecting to db on {0}", &std::env::var("DATABASE_URL").expect("DATABASE_URL not set"));
+    let pool = MySqlPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await?;
+
+    println!("Creating database {0}", &std::env::var("DATABASE_NAME").expect("DATABASE_NAME not set"));
+    db::create_database(&pool, &std::env::var("DATABASE_NAME").expect("DATABASE_NAME not set")).await?;
+    println!("Verified db connection on {0}", database_url());
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!"))

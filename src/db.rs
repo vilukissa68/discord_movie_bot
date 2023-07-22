@@ -1,8 +1,14 @@
 use sqlx::mysql::MySqlPool;
-use futures::TryStreamExt;
 use sqlx::Row;
 use crate::movie::{Movie};
 use anyhow::Result;
+
+pub async fn create_database(pool: &MySqlPool, database: &String) -> Result<(), sqlx::Error> {
+    let query = format!("CREATE DATABASE IF NOT EXISTS {}", database);
+    sqlx::query(query.as_str())
+        .execute(pool).await?;
+    Ok(())
+}
 
 pub async fn create_list(pool: &MySqlPool, table: String) -> Result<(), sqlx::Error> {
     let query = format!("

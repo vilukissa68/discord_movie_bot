@@ -1,0 +1,37 @@
+version: '3'
+services:
+    discorddb:
+        container_name: discorddb
+        image: mariadb
+        environment:
+            MYSQL_ROOT_PASSWORD: password
+            MYSQL_DATABASE: discord
+            MYSQL_USER: user
+            MYSQL_PASSWORD: password
+            MYSQL_TCP_PORT: 3308
+            MYSQL_UNIX_PORT: 3308
+        volumes:
+        - db-data:/var/lib/mysql
+        ports:
+        - 3308:3308
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "h", "localhost"]
+            interval: 1m
+            timeout: 3s
+
+    app:
+        build: .
+        environment:
+            OMDB_API_TOKEN:
+            DATABASE_URL: "mysql://user:password@discorddb:3308"
+            DATABASE_NAME: "discord"
+            DISCORD_API_TOKEN:
+        entrypoint: ["/app/discord_movie_bot"]
+        depends_on:
+        - discorddb
+        links:
+        - discorddb
+
+volumes:
+    db-data:
+        driver: local
