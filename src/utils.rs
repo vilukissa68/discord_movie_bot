@@ -1,7 +1,9 @@
 use regex::Regex;
 use sqlx::mysql::MySqlPool;
 use serenity::utils::MessageBuilder;
-use tabled::{Table, builder::Builder, settings::Style, row};
+use tabled::{
+    settings::{Modify, Alignment, object::Segment},
+    builder::Builder, settings::Style};
 
 use crate::movie::Movie;
 use crate::db::{get_movies};
@@ -66,9 +68,32 @@ pub fn create_movie_list_card(movies: &Vec<Movie>, table: &String) -> String {
 }
 
 pub fn create_movies_list_table(movies: &Vec<Movie>, table: &String) -> String {
-    let msg: String = format!("Movies in list {}:\n", table);
-    let table = Table::new(movies).to_string();
-    return msg + &table;
+    let greeting: String = format!("Movies in list {}:\n", table);
+
+    // Show Title, year, director and imdb score
+    // Watch status is shown by strikethrough
+    let mut builder = Builder::default();
+    builder.set_header(vec!["Title", "Year", "Director", "Imdb Score", "W"]);
+
+    for movie in movies {
+        if movie.watched {
+            builder.push_record(vec![format!("---{}---", movie.title),
+                                     format!("---{}---", movie.year),
+                                     format!("---{}---", movie.director),
+                                     format!("---{}---", movie.imdbrating),
+                                     format!("X")]);
+        } else {
+            builder.push_record(vec![movie.title.to_string(),
+                                     movie.year.to_string(),
+                                     movie.director.to_string(),
+                                     movie.imdbrating.to_string(),
+                                     format!(" ")]);
+        }
+    }
+    let mut table = builder.build();
+    table.with(Modify::new(Segment::all()).with(Alignment::center()));
+
+    return format!("{}\n`{}`", greeting, table.with(Style::sharp()));
 }
 
 pub async fn match_idx_to_name(pool: &MySqlPool, idx: u32, table: &String) -> Option<String> {

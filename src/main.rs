@@ -77,7 +77,8 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
                 msg.reply(ctx, "No movies in list").await?;
                 return Ok(());
             }
-            let card = utils::create_movie_list_card(&movies.unwrap(), &table.to_string());
+            //let card = utils::create_movie_list_card(&movies.unwrap(), &table.to_string());
+            let card = utils::create_movies_list_table(&movies.unwrap(), &table.to_string());
             msg.channel_id.say(&ctx.http, card).await?;
         }
         _ => {msg.reply(ctx, "Invalid arguments").await?;}
