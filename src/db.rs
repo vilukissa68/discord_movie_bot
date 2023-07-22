@@ -1,4 +1,6 @@
 use sqlx::mysql::MySqlPool;
+use futures::TryStreamExt;
+use sqlx::Row;
 use crate::movie::{Movie};
 use anyhow::Result;
 
@@ -53,7 +55,7 @@ pub async fn delete_movie(pool: &MySqlPool, table: &String, title: &String) -> R
     let result = sqlx::query(query.as_str())
         .execute(pool).await?
         .rows_affected();
-    Ok((result > 0))
+    Ok(result > 0)
 }
 
 pub async fn get_movie_by_name(pool: &MySqlPool, table: &String, title: &String) -> Result<Movie> {
@@ -85,11 +87,12 @@ pub async fn get_movies(pool: &MySqlPool, table: String) -> Option<Vec<Movie>> {
 }
 
 pub async fn table_exists(pool: &MySqlPool, table: &String) -> anyhow::Result<bool> {
-    let tables = sqlx::query!("SHOW TABLES")
+    let tables = sqlx::query("SHOW TABLES")
         .fetch_all(pool).await?;
 
-    for tab in tables {
-        if tab.Tables_in_discord == table.clone() {
+    while let Some(tab) = tables.iter().next() {
+        let tab: String = tab.get(0);
+        if tab == table.clone() {
             println!("Table {} exists", table);
             return Ok(true);
         }

@@ -48,15 +48,15 @@ pub fn create_movie_list_card(movies: &Vec<Movie>, table: &String) -> String {
     // Generate list of movies as discord markdown table
     let mut card = MessageBuilder::new();
     card.push_bold_line(&format!("Movies in list {}:", table));
-    card.push_mono("Title | Year | Director | Imdb Score\n");
+    card.push_mono_line("Title | Year | Director | Imdb Score");
     let mut i = 1;
     for movie in movies {
         match movie.watched {
             true => {
-                card.push_strike_line(&format!("{} | {}  |  {}  |  {}  |  {} ", i, movie.title, movie.year, movie.director, movie.imdbrating));
+                card.push_strike_line(&format!("`{} | {}  |  {}  |  {}  |  {}`", i, movie.title, movie.year, movie.director, movie.imdbrating));
             },
             false => {
-                card.push_line(&format!("{} | {}  |  {}  |  {}  |  {}", i, movie.title, movie.year, movie.director, movie.imdbrating));
+                card.push_mono_line(&format!("{} | {}  |  {}  |  {}  |  {}", i, movie.title, movie.year, movie.director, movie.imdbrating));
             },
         }
         i = i + 1;

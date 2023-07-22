@@ -3,17 +3,15 @@ pub mod http;
 pub mod db;
 pub mod utils;
 
-use crate::db::*;
 use crate::movie::*;
 
 use dotenv::dotenv;
+use serenity::utils::MessageBuilder;
 use sqlx::mysql::MySqlPool;
 use regex::Regex;
 use std::time::Duration;
 
 use serenity::async_trait;
-use serenity::collector::{EventCollectorBuilder, MessageCollectorBuilder};
-use serenity::futures::stream::StreamExt;
 use serenity::prelude::*;
 use serenity::model::channel::Message;
 use serenity::framework::standard::{
@@ -27,7 +25,7 @@ use serenity::framework::standard::{
 
 
 #[group]
-#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove)]
+#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove, help)]
 struct General;
 
 #[group("collector")]
@@ -64,6 +62,7 @@ async fn create_list(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("list", "ls")]
 async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
@@ -87,7 +86,9 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
         Ok(())
 }
 
+
 #[command]
+#[aliases("add")]
 async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     let adder = msg.author.name.clone();
@@ -137,6 +138,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("movie")]
 async fn search(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
@@ -172,6 +174,7 @@ async fn search(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("w")]
 async fn watch(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
@@ -206,6 +209,7 @@ async fn watch(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("uw")]
 async fn unwatch(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
@@ -240,6 +244,7 @@ async fn unwatch(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("rm")]
 async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
     let split = utils::split_string(msg.content.clone());
     match &split[..] {
@@ -302,6 +307,29 @@ async fn delete_list(ctx: &Context, msg: &Message) -> CommandResult {
         _ => {msg.reply(ctx, "Invalid arguments").await?;}
     }
 
+    Ok(())
+}
+
+#[command]
+async fn help(ctx: &Context, msg: &Message) -> CommandResult {
+    let card = MessageBuilder::new()
+        .push_line("Get started by creating a list with `!create_list {list_name}` and adding movies with `!add_movie {list_name} {movie_name}`. After watching a movie mark it watched rather then removing from list with `!watch {list_name} {movie_name}`. Remember to use quotes when typing titles with multiple words.")
+        .push_line("")
+        .push_bold_line("Commands:")
+        .push_line("`!search {movie_name}` - Search for movie")
+        .push_line("`!search {movie_name} {year}` - Search for movie with year")
+        .push_line("`!create_list {list_name}` - Create a list")
+        .push_line("`!add_movie {list_name} {movie_name}` - Add a movie to a list")
+        .push_line("`!add_movie {list_name} {movie_name} {year}` - Add a movie to a list with year")
+        .push_line("`!remove_movie {list_name} {movie_name}` - Remove a movie from a list")
+        .push_line("`!watch {list_name} {movie_name}` - Mark a movie as watched")
+        .push_line("`!unwatch {list_name} {movie_name}` - Mark a movie as unwatched")
+        .push_line("`!list_movies {list_name}` - List all movies in a list")
+        .push_line("`!delete_list {list_name}` - Delete a list")
+        .push_line("`!help` - Show this message")
+        .build();
+
+    msg.channel_id.say(&ctx.http, &card).await?;
     Ok(())
 }
 
