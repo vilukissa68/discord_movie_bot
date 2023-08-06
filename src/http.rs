@@ -58,7 +58,6 @@ pub async fn http_get_movie(name: &String, adder: &String, year: Option<u32>) ->
     }
 
     // Year needs some extra handling before it can be parsed to u32
-    let year = json["Year"].to_string().replace("\"", "").parse::<u32>().unwrap();
     let movie = Movie::new(
         json["Title"].to_string().replace("\"", ""),
         adder.to_string(),
@@ -69,7 +68,9 @@ pub async fn http_get_movie(name: &String, adder: &String, year: Option<u32>) ->
         Some(json["Metascore"].to_string().replace("\"", "")),
         Some(json["imdbRating"].to_string().replace("\"", "")),
         Some(json["imdbID"].to_string().replace("\"", "")),
-        Some(year),
+        Some(json["Year"].to_string().replace("\"", "").parse::<u32>().unwrap()),
+        Some(json["Runtime"].to_string().replace(" min", "").replace("\"", "").parse::<u32>().unwrap()),
+        Some(json["Genre"].to_string().replace("\"", "")),
     );
     return Ok(movie);
 }

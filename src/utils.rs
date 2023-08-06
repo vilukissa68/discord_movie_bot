@@ -7,6 +7,7 @@ use tabled::{
 
 use crate::movie::Movie;
 use crate::db::{get_movies};
+use anyhow::Result;
 
 // Split string is quotes aware
 pub fn split_string(s: String) -> Vec<String>{
@@ -40,7 +41,9 @@ pub fn create_movie_card(movie: &Movie) -> String {
         .push_line(&format!("Actors: {}", movie.actors))
         .push_line(&format!("Language: {}", movie.language))
         .push_line(&format!("Country: {}", movie.country))
+        .push_line(&format!("Genre: {}", movie.genre))
         .push_line(&format!("Metascore: {}", movie.metascore))
+        .push_line(&format!("Runtime: {} min", movie.runtime))
         .push_line(&format!("IMDB Rating: {}", movie.imdbrating))
         .push_line(&format!("{}", imdburl(&movie.imdbid)))
         .build();
@@ -73,19 +76,21 @@ pub fn create_movies_list_table(movies: &Vec<Movie>, table: &String) -> String {
     // Show Title, year, director and imdb score
     // Watch status is shown by strikethrough
     let mut builder = Builder::default();
-    builder.set_header(vec!["Title", "Year", "Director", "Imdb Score", "W"]);
+    builder.set_header(vec!["Title", "Year", "Director", "Runtime", "Imdb Score", "W"]);
 
     for movie in movies {
         if movie.watched {
             builder.push_record(vec![format!("---{}---", movie.title),
                                      format!("---{}---", movie.year),
                                      format!("---{}---", movie.director),
+                                     format!("---{}---", movie.runtime),
                                      format!("---{}---", movie.imdbrating),
                                      format!("X")]);
         } else {
             builder.push_record(vec![movie.title.to_string(),
                                      movie.year.to_string(),
                                      movie.director.to_string(),
+                                     format!("{} min", movie.runtime),
                                      movie.imdbrating.to_string(),
                                      format!(" ")]);
         }
@@ -96,17 +101,12 @@ pub fn create_movies_list_table(movies: &Vec<Movie>, table: &String) -> String {
     return format!("{}\n`{}`", greeting, table.with(Style::sharp()));
 }
 
-pub async fn match_idx_to_name(pool: &MySqlPool, idx: u32, table: &String) -> Option<String> {
+pub async fn match_idx_to_name(pool: &MySqlPool, idx: u32, table: &String) -> Result<String> {
     format!("{}-{}", table, idx);
-    let movies: Option<Vec<Movie>> = get_movies(pool, table.to_string()).await;
-    match movies {
-        Some(movies) => {
-            let movie = &movies[idx as usize - 1];
-            Some(movie.title.clone())
-        },
-        None => {
-            None
-        }
+    let movies = get_movies(pool, &table.to_string()).await?;
+    let movie = &movies[idx as usize - 1];
+    if movie.title.is_empty() {
+        return Err(anyhow::anyhow!("Invalid id {}", idx));
     }
-
+    Ok(movie.title.clone())
 }

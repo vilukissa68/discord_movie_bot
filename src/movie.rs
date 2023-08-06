@@ -13,13 +13,15 @@ pub struct Movie {
     pub imdbrating: String,
     pub imdbid: String,
     pub year: u32,
+    pub runtime: u32,
+    pub genre: String,
     pub watched: bool,
 }
 
 impl Movie {
     pub fn new(title: String, adder: String, director: Option<String>, actors: Option<String>, language: Option<String>,
     country: Option<String>, metascore: Option<String>, imdbrating: Option<String>, imdbid: Option<String>,
-    year: Option<u32>) -> Movie {
+    year: Option<u32>, runtime: Option<u32>, genre: Option<String>) -> Movie {
         Movie {
             title: title,
             adder: adder,
@@ -31,10 +33,35 @@ impl Movie {
             imdbrating: imdbrating.unwrap_or("NULL".to_string()),
             imdbid: imdbid.unwrap_or("NULL".to_string()),
             year: year.unwrap_or(0),
+            runtime: runtime.unwrap_or(0),
+            genre: genre.unwrap_or("NULL".to_string()),
             watched: false,
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Tabled)]
+pub struct MovieShort {
+    pub title: String,
+    pub adder: String,
+    pub imdbid: String,
+    pub year: u32,
+    pub watched: bool,
+}
+
+impl MovieShort {
+    pub fn new(title: String, adder: String, imdbid: String, year: u32, watched: bool) -> MovieShort {
+        MovieShort {
+            title: title,
+            adder: adder,
+            imdbid: imdbid,
+            year: year,
+            watched: watched,
+        }
+    }
+}
+
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MovieList {

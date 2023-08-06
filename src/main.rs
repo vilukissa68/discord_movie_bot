@@ -24,7 +24,7 @@ use serenity::framework::standard::{
 };
 
 #[group]
-#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove, help)]
+#[commands(ping, create_list, show_list, add_movie, search, watch, unwatch, remove, update_database, help)]
 struct General;
 
 #[group("collector")]
@@ -50,7 +50,7 @@ async fn create_list(ctx: &Context, msg: &Message) -> CommandResult {
         [_, table] => {
             let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            db::create_list(&pool, table_name).await?;
+            db::create_list(&pool, &table_name).await?;
             msg.reply(ctx, format!("Created list {}", table.to_string())).await?;
         }
         _ => {
@@ -68,17 +68,12 @@ async fn show_list(ctx: &Context, msg: &Message) -> CommandResult {
         [_, table] => {
             let pool = MySqlPool::connect(&database_url()).await?;
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
-            if !db::table_exists(&pool, &table_name).await? {
+            if !(db::table_exists(&pool, &table_name).await?) {
                 msg.reply(ctx, format!("List {} does not exist", table)).await?;
                 return Ok(());
             }
-            let movies: Option<Vec<Movie>> = db::get_movies(&pool, table_name).await;
-            if movies.is_none() {
-                msg.reply(ctx, "No movies in list").await?;
-                return Ok(());
-            }
-            //let card = utils::create_movie_list_card(&movies.unwrap(), &table.to_string());
-            let card = utils::create_movies_list_table(&movies.unwrap(), &table.to_string());
+            let movies = db::get_movies(&pool, &table_name).await?;
+            let card = utils::create_movies_list_table(&movies, &table.to_string());
             msg.channel_id.say(&ctx.http, card).await?;
         }
         _ => {msg.reply(ctx, "Invalid arguments").await?;}
@@ -101,7 +96,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
             }
             let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
             let pool = MySqlPool::connect(&database_url()).await?;
-            match db::table_exists(&pool, &table_name).await? {
+            match (db::table_exists(&pool, &table_name).await?) {
                 true => {
                     let movie = http::http_get_movie(&title, &adder, Some(year.unwrap())).await;
                     if movie.is_err() {
@@ -109,7 +104,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
                         return Ok(());
                     }
                     let movie = movie.unwrap();
-                    db::add_movie(&pool, table_name, &movie).await?;
+                    db::add_movie(&pool, &table_name, &movie).await?;
                     msg.reply(ctx, format!("Added movie {} to list {}", movie.title, table.to_string())).await?;
                 }
                 false => {msg.reply(ctx, format!("List {} does not exist", table.to_string())).await?;}
@@ -126,7 +121,7 @@ async fn add_movie(ctx: &Context, msg: &Message) -> CommandResult {
                         return Ok(());
                     }
                     let movie = movie.unwrap();
-                    db::add_movie(&pool, table_name, &movie).await?;
+                    db::add_movie(&pool, &table_name, &movie).await?;
                     msg.reply(ctx, format!("Added movie {} to list {}", movie.title, table.to_string())).await?;
                 }
                 false => {msg.reply(ctx, format!("List {} does not exist", table.to_string())).await?;}
@@ -188,7 +183,7 @@ async fn watch(ctx: &Context, msg: &Message) -> CommandResult {
                 let idx: u32 = title.parse::<u32>().unwrap();
                 let t = utils::match_idx_to_name(&pool, idx, &table_name).await;
 
-                if t.is_none() {
+                if t.is_err() {
                     msg.reply(ctx, "Invalid movie id").await?;
                     return Ok(());
                 }
@@ -223,7 +218,7 @@ async fn unwatch(ctx: &Context, msg: &Message) -> CommandResult {
                 let idx: u32 = title.parse::<u32>().unwrap();
                 let t = utils::match_idx_to_name(&pool, idx, &table_name).await;
 
-                if t.is_none() {
+                if t.is_err() {
                     msg.reply(ctx, "Invalid movie id").await?;
                     return Ok(());
                 }
@@ -256,13 +251,8 @@ async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
             let re = Regex::new("^[0-9]+$").unwrap();
             if re.is_match(title) {
                 let idx: u32 = title.parse::<u32>().unwrap();
-                let t = utils::match_idx_to_name(&pool, idx, &table_name).await;
-
-                if t.is_none() {
-                    msg.reply(ctx, "Invalid movie id").await?;
-                    return Ok(());
-                }
-                matched_title = t.unwrap();
+                let t = utils::match_idx_to_name(&pool, idx, &table_name).await?;
+                matched_title = t;
             }
             let result =  db::delete_movie(&pool, &table_name, &matched_title).await?;
             if result {
@@ -331,6 +321,43 @@ async fn help(ctx: &Context, msg: &Message) -> CommandResult {
 
     msg.channel_id.say(&ctx.http, &card).await?;
     Ok(())
+}
+
+// Run this when new column is added
+// Caches the old list and creates a new one with same movies
+ #[command]
+async fn update_database(ctx: &Context, msg: &Message) -> CommandResult {
+    let split = utils::split_string(msg.content.clone());
+    match &split[..] {
+        [_, table] => {
+            // Check if addressing movie with name of id
+            let pool = MySqlPool::connect(&database_url()).await?;
+            let table_name = format!("{}_{}", msg.guild_id.unwrap().0, table);
+            if !db::table_exists(&pool, &table_name).await? {
+                msg.reply(ctx, format!("List {} doesn't exist", table.to_string())).await?;
+                return Ok(());
+            }
+            let _ = msg.reply(ctx, format!("Are you absolutely sure you want to update list {}? (yes/no)", table.to_string())).await?;
+            if let Some(answer) = &msg.author.await_reply(ctx).timeout(Duration::from_secs(20)).await {
+                if answer.content.to_lowercase() != "yes" {
+                    msg.reply(ctx, "Aborting").await?;
+                    return Ok(());
+                }
+            }
+            let movies = db::get_movies_short(&pool, &table_name).await?;
+            db::delete_list(&pool, &table_name).await?;
+            db::create_list(&pool, &table_name).await?;
+            for movie in movies {
+                let mut http_movie = http::http_get_movie(&movie.title, &movie.adder, Some(movie.year)).await?;
+                http_movie.watched = movie.watched;
+                db::add_movie(&pool, &table_name, &http_movie).await?;
+            }
+            msg.reply(ctx, format!("Updated list {}", table.to_string())).await?;
+            return Ok(());
+        }
+        _ => {msg.reply(ctx, "Invalid arguments").await?;}
+    }
+    return Ok(());
 }
 
 fn database_url() -> String {
